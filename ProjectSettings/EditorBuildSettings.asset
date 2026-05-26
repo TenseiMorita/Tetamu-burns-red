@@ -11,5 +11,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Battle.unity
     guid: 254faaf9c6c0d62468a0b7ce205384af
+  - enabled: 1
+    path: Assets/Scenes/Courtyard.unity
+    guid: 8938113057637f942970bbb575a2111d
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

@@ -70,30 +70,70 @@ public class BattleSceneBootstrapper : MonoBehaviour
 
     private void EnsureGround()
     {
-        // シンプルな床プレーンを生成
+        // シンプルな床プレーンの代わりに校庭（Schoolyard）の背景と地面を構築
         if (GameObject.Find("BattleGround") != null) return;
 
+        GameObject schoolyardParent = new GameObject("BattleGround");
+        schoolyardParent.transform.position = Vector3.zero;
+
+        // 1. 校庭の地面 (Y = 0fにピッタリ設置するため、薄い板にするかPlaneを使用)
         GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "BattleGround";
-        ground.transform.position = Vector3.zero;
-        ground.transform.localScale = new Vector3(5f, 1f, 3f);
+        ground.name = "Ground";
+        ground.transform.parent = schoolyardParent.transform;
+        ground.transform.localPosition = new Vector3(0f, 0f, 0f);
+        ground.transform.localScale = new Vector3(10f, 1f, 10f); // 100x100m
+        
+        Material grMat = new Material(Shader.Find("Standard"));
+        grMat.color = new Color(0.48f, 0.42f, 0.35f, 1f); // 校庭の砂土色
+        grMat.SetFloat("_Glossiness", 0.05f);
+        ground.GetComponent<Renderer>().sharedMaterial = grMat;
 
-        if (groundMaterial != null)
+        // 2. 校舎の背景壁 (十分に奥にずらす Z = 15f)
+        GameObject schoolWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        schoolWall.name = "SchoolBuildingWall";
+        schoolWall.transform.parent = schoolyardParent.transform;
+        schoolWall.transform.localPosition = new Vector3(0f, 6f, 15f);
+        schoolWall.transform.localScale = new Vector3(80f, 12f, 2f);
+        
+        Material wallMat = new Material(Shader.Find("Standard"));
+        wallMat.color = new Color(0.85f, 0.82f, 0.78f, 1f);
+        wallMat.SetFloat("_Glossiness", 0.5f);
+        schoolWall.GetComponent<Renderer>().sharedMaterial = wallMat;
+
+        // 窓の生成
+        for (int x = -6; x <= 6; x++)
         {
-            ground.GetComponent<Renderer>().sharedMaterial = groundMaterial;
-        }
-        else
-        {
-            // HBR 風のダーク床マテリアルをプロシージャルに生成
-            Material mat = new Material(Shader.Find("Standard"));
-            mat.color = new Color(0.07f, 0.09f, 0.14f, 1f);
-            mat.SetFloat("_Metallic", 0.6f);
-            mat.SetFloat("_Glossiness", 0.5f);
-            ground.GetComponent<Renderer>().sharedMaterial = mat;
+            if (x == 0) continue;
+            for (int y = 1; y <= 2; y++)
+            {
+                GameObject win = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                win.name = "BackgroundWindow";
+                win.transform.parent = schoolWall.transform;
+                win.transform.localPosition = new Vector3(x * 5f, y * 3f - 6f, -1.05f);
+                win.transform.localScale = new Vector3(2.5f, 1.8f, 0.1f);
+                
+                Material winMat = new Material(Shader.Find("Standard"));
+                winMat.color = new Color(0.2f, 0.4f, 0.6f, 1f);
+                win.GetComponent<Renderer>().sharedMaterial = winMat;
+            }
         }
 
-        // グリッドライン（擬似的な戦場マーカー）
-        BuildGridLines();
+        // 3. 左右のフェンス (十分に外側に配置)
+        GameObject fenceLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        fenceLeft.name = "FenceLeft";
+        fenceLeft.transform.parent = schoolyardParent.transform;
+        fenceLeft.transform.localPosition = new Vector3(-35f, 1f, 0f);
+        fenceLeft.transform.localScale = new Vector3(0.2f, 2f, 30f);
+        Material fenceMat = new Material(Shader.Find("Standard"));
+        fenceMat.color = new Color(0.5f, 0.55f, 0.6f, 1f);
+        fenceLeft.GetComponent<Renderer>().sharedMaterial = fenceMat;
+
+        GameObject fenceRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        fenceRight.name = "FenceRight";
+        fenceRight.transform.parent = schoolyardParent.transform;
+        fenceRight.transform.localPosition = new Vector3(35f, 1f, 0f);
+        fenceRight.transform.localScale = new Vector3(0.2f, 2f, 30f);
+        fenceRight.GetComponent<Renderer>().sharedMaterial = fenceMat;
     }
 
     private void BuildGridLines()
@@ -166,25 +206,91 @@ public class BattleSceneBootstrapper : MonoBehaviour
             GameObject enemy = new GameObject("BattleEnemy_" + i);
             enemy.transform.position = new Vector3(3f + i * 2.5f, 0f, 0f);
 
-            // Visual: dark red/purple alien shape
-            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            visual.name = "Visual";
-            visual.transform.SetParent(enemy.transform, false);
-            visual.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-            visual.transform.localScale = new Vector3(1.2f, 1.8f, 1.2f);
-            Destroy(visual.GetComponent<Collider>());
+            // Visual container
+            GameObject visualParent = new GameObject("Visual");
+            visualParent.transform.SetParent(enemy.transform, false);
 
-            Material mat = new Material(Shader.Find("Standard"));
-            mat.color = new Color(0.5f, 0f, 0.7f, 1f);
-            mat.SetFloat("_Metallic", 0.7f);
-            mat.SetFloat("_Glossiness", 0.8f);
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", new Color(0.4f, 0f, 0.6f) * 1.2f);
-            visual.GetComponent<Renderer>().sharedMaterial = mat;
+            // 1. Central Core
+            GameObject core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            core.name = "Core";
+            core.transform.SetParent(visualParent.transform, false);
+            core.transform.localPosition = new Vector3(0f, 1.3f, 0f);
+            core.transform.localScale = new Vector3(1.3f, 1.3f, 1.3f);
+            Destroy(core.GetComponent<Collider>());
 
-            // Tag as Enemy for GameManager to find
+            Material coreMat = new Material(Shader.Find("Standard"));
+            coreMat.color = new Color(0.1f, 0.05f, 0.15f, 1f); // Deep obsidian
+            coreMat.SetFloat("_Glossiness", 0.8f);
+            coreMat.EnableKeyword("_EMISSION");
+            coreMat.SetColor("_EmissionColor", new Color(0.4f, 0f, 0f));
+            core.GetComponent<Renderer>().sharedMaterial = coreMat;
+
+            // Glowing eye
+            GameObject eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            eye.name = "GlowingEye";
+            eye.transform.SetParent(core.transform, false);
+            eye.transform.localPosition = new Vector3(0f, 0f, -0.45f);
+            eye.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
+            Destroy(eye.GetComponent<Collider>());
+
+            Material eyeMat = new Material(Shader.Find("Standard"));
+            eyeMat.color = Color.red;
+            eyeMat.EnableKeyword("_EMISSION");
+            eyeMat.SetColor("_EmissionColor", new Color(2f, 0f, 0f));
+            eye.GetComponent<Renderer>().sharedMaterial = eyeMat;
+
+            // 2. Shell Ring
+            GameObject shellY = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            shellY.name = "ShellY";
+            shellY.transform.SetParent(core.transform, false);
+            shellY.transform.localPosition = Vector3.zero;
+            shellY.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            shellY.transform.localScale = new Vector3(1.2f, 0.1f, 1.2f);
+            Destroy(shellY.GetComponent<Collider>());
+
+            Material shellMat = new Material(Shader.Find("Standard"));
+            shellMat.color = new Color(0.2f, 0.22f, 0.25f, 1f);
+            shellY.GetComponent<Renderer>().sharedMaterial = shellMat;
+
+            // 3. Spooky Legs/Claws
+            for (int c = 0; c < 5; c++)
+            {
+                float angle = c * 72f * Mathf.Deg2Rad;
+                float cos = Mathf.Cos(angle);
+                float sin = Mathf.Sin(angle);
+
+                GameObject legParent = new GameObject("Leg_" + c);
+                legParent.transform.SetParent(visualParent.transform, false);
+                legParent.transform.localPosition = new Vector3(cos * 0.9f, 1.3f, sin * 0.9f);
+
+                // Segment 1
+                GameObject seg1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                seg1.transform.SetParent(legParent.transform, false);
+                seg1.transform.localPosition = new Vector3(cos * 0.4f, 0.2f, sin * 0.4f);
+                seg1.transform.localRotation = Quaternion.LookRotation(new Vector3(cos, 0.3f, sin));
+                seg1.transform.localScale = new Vector3(0.18f, 0.18f, 0.8f);
+                Destroy(seg1.GetComponent<Collider>());
+                seg1.GetComponent<Renderer>().sharedMaterial = shellMat;
+
+                // Segment 2
+                GameObject seg2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                seg2.transform.SetParent(legParent.transform, false);
+                seg2.transform.localPosition = new Vector3(cos * 0.8f, -0.6f, sin * 0.8f);
+                seg2.transform.localRotation = Quaternion.LookRotation(new Vector3(0f, -1f, 0f));
+                seg2.transform.localScale = new Vector3(0.12f, 0.12f, 1.2f);
+                Destroy(seg2.GetComponent<Collider>());
+                seg2.GetComponent<Renderer>().sharedMaterial = shellMat;
+
+                // Tip
+                GameObject tip = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                tip.transform.SetParent(seg2.transform, false);
+                tip.transform.localPosition = new Vector3(0f, 0f, 0.6f);
+                tip.transform.localScale = new Vector3(2f, 2f, 2f);
+                Destroy(tip.GetComponent<Collider>());
+                tip.GetComponent<Renderer>().sharedMaterial = eyeMat;
+            }
+
             enemy.tag = "Respawn";
-
             enemyTransforms.Add(enemy.transform);
         }
     }
