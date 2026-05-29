@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using UnityEngine.TextCore.LowLevel;
 
 public enum GameState { Explore, Alert, Cutscene, Battle, Victory, GameOver }
 
@@ -116,6 +117,7 @@ public class GameManager : MonoBehaviour
         // Re-find or recreate references that belong to SampleScene
         playerMove = FindObjectOfType<PlayerMove>();
         cameraFollow = FindObjectOfType<CameraFollow>();
+        if (cameraFollow != null) cameraFollow.enabled = true;
         npcDialogue = FindObjectOfType<NPCDialogue>();
 
         corridorGenerator = FindObjectOfType<CorridorGenerator>();
@@ -143,6 +145,7 @@ public class GameManager : MonoBehaviour
         SetupEnvironments();
         SetupCharacters();
         CreateGlobalUI();
+        ApplyGlobalTMPFontFix();
         StartExplorePhase();
         StartCoroutine(SafeGroundingRoutine());
     }
@@ -155,6 +158,47 @@ public class GameManager : MonoBehaviour
         yield return null; // wait one frame
 
         Debug.Log("GameManager: InitBattleScene starting...");
+
+        // ── Destroy leftover Talk scene environments that persist via DontDestroyOnLoad ──
+        string[] talkSceneObjects = {
+            "Generated_Procedural_Corridor",
+            "Generated_Procedural_Schoolyard",
+            "CorridorGenerator",
+            "SchoolyardGenerator",
+            "Ground",
+            "Classroom corridor wall Right",
+            "Classroom corridor wall Left",
+            "Classroom corridor doar"
+        };
+        foreach (string objName in talkSceneObjects)
+        {
+            GameObject obj = GameObject.Find(objName);
+            if (obj != null)
+            {
+                Debug.Log("GameManager: Destroying Talk scene object -> " + objName);
+                Destroy(obj);
+            }
+        }
+        // Also destroy the stored references
+        if (corridorObj != null) { Destroy(corridorObj); corridorObj = null; }
+        if (schoolyardObj != null) { Destroy(schoolyardObj); schoolyardObj = null; }
+        corridorGenerator = null;
+        schoolyardGenerator = null;
+
+        // ── Ensure Talk scene actors are not visible in Battle scene ──
+        CleanupTalkActorsForBattle();
+
+        // ── Enable kandaiComplete school stage in the Battle scene ──
+        GameObject kandaiStage = GameObject.Find("kandaiComplete");
+        if (kandaiStage != null)
+        {
+            kandaiStage.SetActive(true);
+            Debug.Log("GameManager: kandaiComplete stage enabled (keeping scene transform).");
+        }
+        else
+        {
+            Debug.LogWarning("GameManager: kandaiComplete not found in Battle scene!");
+        }
 
         // Resolve BattleManager & BattleUI from the Battle scene
         battleManager = FindObjectOfType<BattleManager>();
@@ -186,15 +230,57 @@ public class GameManager : MonoBehaviour
             Camera cam = Camera.main;
             if (cam != null) cameraFollow = cam.gameObject.AddComponent<CameraFollow>();
         }
+        if (cameraFollow != null)
+        {
+            cameraFollow.target = null;
+            cameraFollow.isTalking = false;
+            cameraFollow.enabled = false; // Keep camera fixed in Battle scene (except shake effects)
+        }
 
         if (battleManager != null) battleManager.Initialize(this, battleUI);
         if (battleManager != null && cameraFollow != null) battleManager.cameraFollow = cameraFollow;
 
         // Recreate global loading/fade UI inside Battle scene (new canvas)
         CreateGlobalUI();
+        ApplyGlobalTMPFontFix();
 
         // Start the schoolyard summoning cutscene → then battle
         StartCoroutine(BattleSceneOpening());
+    }
+
+    private void CleanupTalkActorsForBattle()
+    {
+        // Any lingering Player from Talk scene must never appear in Battle scene.
+        PlayerMove[] talkPlayers = FindObjectsOfType<PlayerMove>(true);
+        foreach (PlayerMove pm in talkPlayers)
+        {
+            if (pm == null) continue;
+            Debug.Log("GameManager: Removing Talk Player for Battle -> " + pm.gameObject.name);
+            Destroy(pm.gameObject);
+        }
+        playerMove = null;
+
+        // Remove dialogue NPCs that can accidentally survive or be pre-placed.
+        NPCDialogue[] talkNpcs = FindObjectsOfType<NPCDialogue>(true);
+        foreach (NPCDialogue npc in talkNpcs)
+        {
+            if (npc == null) continue;
+            Debug.Log("GameManager: Removing Talk NPC for Battle -> " + npc.gameObject.name);
+            Destroy(npc.gameObject);
+        }
+        npcDialogue = null;
+
+        // Extra safety: remove explicitly named talk actors/clones.
+        string[] talkActorNames = { "Player", "NPC", "NPC_1", "NPC_2", "NPC_3", "NPC_4" };
+        foreach (string actorName in talkActorNames)
+        {
+            GameObject actor = GameObject.Find(actorName);
+            if (actor != null)
+            {
+                Debug.Log("GameManager: Destroying talk actor by name -> " + actorName);
+                Destroy(actor);
+            }
+        }
     }
 
     private IEnumerator BattleSceneOpening()
@@ -204,25 +290,15 @@ public class GameManager : MonoBehaviour
         currentState = GameState.Cutscene;
         dialogueSequence = 2;
 
-        // Build or find NPC dialogue handler in Battle scene
-        npcDialogue = FindObjectOfType<NPCDialogue>();
+        // Destroy the accidental NPC (red capsule) that might have been left in the Battle scene
+        GameObject accidentalNPC = GameObject.Find("NPC");
+        if (accidentalNPC != null)
+        {
+            Destroy(accidentalNPC);
+        }
 
-        if (npcDialogue != null)
-        {
-            string[] summonLines = new string[]
-            {
-                "司令官「来たわね、セラフ隊員。目の前にいるのが地球外生命体キャンサーよ。」",
-                "司令官「あなたたちのスマホには武器召喚コード『テラフィムコード』が設定されているわ。」",
-                "戦友「いくよ、みんな！テラフィムコード起動！」",
-                "主人公「あたしたちの力、見せてやる！テラフィムコード、テイクオン！」"
-            };
-            npcDialogue.StartDialogueSequence("司令官", summonLines);
-        }
-        else
-        {
-            // No dialogue panel in Battle scene - skip straight to weapon summon
-            StartCoroutine(SummonRitualSequence());
-        }
+        // No dialogue panel in Battle scene - skip straight to weapon summon
+        StartCoroutine(SummonRitualSequence());
     }
 
     // ============================================================
@@ -472,27 +548,7 @@ public class GameManager : MonoBehaviour
 
     private void CreateGlobalUI()
     {
-        // Resolve font
-        if (customFont == null)
-        {
-#if UNITY_EDITOR
-            customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(
-                "Assets/SU3DJPFont/TextMeshProFont/Dynamic/mplus-1p-medium SDF Dynamic.asset");
-#endif
-        }
-        if (customFont == null)
-        {
-            var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-            foreach (var f in fonts)
-            {
-                if (f != null && f.name != null &&
-                    (f.name.Contains("mplus") || (f.name.Contains("SDF") && !f.name.Contains("Liberation"))))
-                {
-                    customFont = f;
-                    break;
-                }
-            }
-        }
+        EnsureJapaneseFont();
 
         // Find or create main canvas
         Canvas canvas = FindObjectOfType<Canvas>();
@@ -649,6 +705,87 @@ public class GameManager : MonoBehaviour
         globalLoadingPanel.SetActive(false);
     }
 
+    private void ApplyGlobalTMPFontFix()
+    {
+        EnsureJapaneseFont();
+        if (customFont == null) return;
+
+        TMP_Text[] allTexts = Resources.FindObjectsOfTypeAll<TMP_Text>();
+        foreach (TMP_Text txt in allTexts)
+        {
+            if (txt == null) continue;
+#if UNITY_EDITOR
+            if (UnityEditor.EditorUtility.IsPersistent(txt)) continue;
+#endif
+            txt.font = customFont;
+            txt.ForceMeshUpdate();
+        }
+    }
+
+    private void EnsureJapaneseFont()
+    {
+        if (customFont != null && customFont.HasCharacter('司') && customFont.HasCharacter('戦'))
+        {
+            EnsureTMPDefaultFont(customFont);
+            return;
+        }
+
+#if UNITY_EDITOR
+        if (customFont == null)
+        {
+            customFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(
+                "Assets/SU3DJPFont/TextMeshProFont/Dynamic/mplus-1p-medium SDF Dynamic.asset");
+        }
+#endif
+
+        if (customFont == null || !customFont.HasCharacter('司') || !customFont.HasCharacter('戦'))
+        {
+            var fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+            foreach (var f in fonts)
+            {
+                if (f == null) continue;
+                if (f.HasCharacter('司') && f.HasCharacter('戦'))
+                {
+                    customFont = f;
+                    break;
+                }
+            }
+        }
+
+        if (customFont == null || !customFont.HasCharacter('司') || !customFont.HasCharacter('戦'))
+        {
+            customFont = CreateRuntimeJapaneseFontAsset();
+        }
+
+        if (customFont != null)
+        {
+            EnsureTMPDefaultFont(customFont);
+        }
+    }
+
+    private TMP_FontAsset CreateRuntimeJapaneseFontAsset()
+    {
+        string[] preferredFonts = { "Yu Gothic UI", "Yu Gothic", "Meiryo", "MS Gothic", "MS UI Gothic" };
+        Font osFont = Font.CreateDynamicFontFromOSFont(preferredFonts, 90);
+        if (osFont == null) return null;
+
+        TMP_FontAsset runtimeFont = TMP_FontAsset.CreateFontAsset(
+            osFont, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024, AtlasPopulationMode.Dynamic, true);
+        if (runtimeFont == null) return null;
+        runtimeFont.name = "RuntimeJapaneseTMPFont";
+        return runtimeFont;
+    }
+
+    private void EnsureTMPDefaultFont(TMP_FontAsset font)
+    {
+        if (font == null || TMP_Settings.instance == null) return;
+        TMP_Settings.defaultFontAsset = font;
+        if (!TMP_Settings.fallbackFontAssets.Contains(font))
+        {
+            TMP_Settings.fallbackFontAssets.Add(font);
+        }
+    }
+
     // ============================================================
     // SampleScene – Explore phase
     // ============================================================
@@ -668,6 +805,7 @@ public class GameManager : MonoBehaviour
 
         if (cameraFollow != null)
         {
+            cameraFollow.enabled = true;
             cameraFollow.target = playerMove != null ? playerMove.transform : null;
             cameraFollow.isTalking = false;
         }

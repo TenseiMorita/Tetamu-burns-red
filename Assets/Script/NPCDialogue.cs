@@ -27,10 +27,10 @@ public class NPCDialogue : MonoBehaviour
     private TextMeshProUGUI customNameText;
     private TextMeshProUGUI customDialogueText;
 
-    //隍・焚縺ｮ譁・ｫ繧貞・繧後ｋ邂ｱ
+    // 会話の本文データ
     public string[] lines;
 
-    //莉翫←縺ｮ譁・ｫ縺九ｒ謗｢縺・
+    // 現在どの行まで表示したか
     private int currentLine = 0;
 
     private bool isTyping = false;

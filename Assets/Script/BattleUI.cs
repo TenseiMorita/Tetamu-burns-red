@@ -7,6 +7,7 @@ using TMPro;
 public class BattleUI : MonoBehaviour
 {
     private BattleManager battleManager;
+    public BattleManager Manager => battleManager;
     private GameObject uiParent;
 
     private List<Slider> enemyHPSliders = new List<Slider>();
@@ -29,6 +30,7 @@ public class BattleUI : MonoBehaviour
     private ActionType[] selectedActions = new ActionType[3];
 
     private Button turnStartButton;
+    private Button swapAllButton;
     private Slider overdriveSlider;
     private TextMeshProUGUI overdriveText;
     private Button overdriveButton;
@@ -41,6 +43,7 @@ public class BattleUI : MonoBehaviour
 
     private bool uiCreated = false;
     private TMP_FontAsset customFont;
+    private int draggingCardIndex = -1;
 
     // HBR Colour Palette
     private static readonly Color ColBgDark = new Color(0.04f, 0.05f, 0.09f, 0.96f);
@@ -82,6 +85,7 @@ public class BattleUI : MonoBehaviour
     {
         if (turnStartButton != null) turnStartButton.interactable = enabled;
         if (overdriveButton != null) overdriveButton.interactable = enabled;
+        if (swapAllButton != null) swapAllButton.interactable = enabled;
     }
 
     private void EnsureEventSystem()
@@ -411,6 +415,12 @@ public class BattleUI : MonoBehaviour
         charSPTexts.Add(spTxt);
 
         cardObjs.Add(card);
+
+        BattleCardDragHandler dragHandler = card.AddComponent<BattleCardDragHandler>();
+        dragHandler.Initialize(this, index);
+
+        CanvasGroup cg = card.GetComponent<CanvasGroup>();
+        if (cg == null) card.AddComponent<CanvasGroup>();
     }
 
     private void CreateOverdrivePanel(Transform parent)
@@ -459,6 +469,26 @@ public class BattleUI : MonoBehaviour
         txt.text = "行動開始\nSTART";
         txt.alignment = TextAlignmentOptions.Center;
         txt.fontSize = 20f;
+
+        GameObject swObj = MakeRect(parent, "SwapAll", new Vector2(0.72f, 0.05f), new Vector2(0.85f, 0.16f));
+        Image swImg = swObj.AddComponent<Image>();
+        swImg.color = new Color(0.2f, 0.5f, 0.9f, 0.95f);
+        swapAllButton = swObj.AddComponent<Button>();
+        swapAllButton.onClick.AddListener(() =>
+        {
+            if (battleManager == null) return;
+            if (!battleManager.TrySwapAllFrontBack()) return;
+            for (int i = 0; i < selectedActions.Length; i++) selectedActions[i] = ActionType.Attack;
+            UpdateSelectionHighlights();
+            UpdateUI();
+        });
+
+        GameObject sTxtObj = MakeRect(swObj.transform, "Txt", Vector2.zero, Vector2.one);
+        TextMeshProUGUI sTxt = sTxtObj.AddComponent<TextMeshProUGUI>();
+        if (customFont != null) sTxt.font = customFont;
+        sTxt.text = "前後衛\n一括入替";
+        sTxt.alignment = TextAlignmentOptions.Center;
+        sTxt.fontSize = 16f;
     }
 
     private Slider CreateSlider(Transform parent, string name, Vector2 minA, Vector2 maxA, Color c)
@@ -497,5 +527,93 @@ public class BattleUI : MonoBehaviour
         rt.sizeDelta = Vector2.zero;
         rt.anchoredPosition = Vector2.zero;
         return go;
+    }
+
+    public void BeginCardDrag(int cardIndex)
+    {
+        draggingCardIndex = cardIndex;
+    }
+
+    public void EndCardDrag()
+    {
+        draggingCardIndex = -1;
+    }
+
+    public void HandleCardDrop(int targetCardIndex)
+    {
+        if (battleManager == null) return;
+        if (draggingCardIndex < 0) return;
+        if (draggingCardIndex == targetCardIndex) return;
+
+        int from = draggingCardIndex;
+        int to = targetCardIndex;
+
+        bool fromFront = from < 3;
+        bool toFront = to < 3;
+
+        bool swapped = false;
+        if (fromFront && !toFront)
+        {
+            swapped = battleManager.TrySwapFrontAndBack(from, to - 3);
+            if (swapped) selectedActions[from] = ActionType.Attack;
+        }
+        else if (!fromFront && toFront)
+        {
+            swapped = battleManager.TrySwapFrontAndBack(to, from - 3);
+            if (swapped) selectedActions[to] = ActionType.Attack;
+        }
+
+        if (!swapped) return;
+        UpdateSelectionHighlights();
+        UpdateUI();
+    }
+}
+
+public class BattleCardDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IDropHandler
+{
+    private BattleUI battleUI;
+    private int cardIndex;
+    private CanvasGroup canvasGroup;
+    private bool isDragging;
+
+    public void Initialize(BattleUI ui, int index)
+    {
+        battleUI = ui;
+        cardIndex = index;
+        canvasGroup = GetComponent<CanvasGroup>();
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (battleUI == null) return;
+        if (canvasGroup == null) return;
+        if (battleUI.Manager == null) return;
+        if (!battleUI.Manager.CanCardBeSwitched(cardIndex)) return;
+
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.alpha = 0.75f;
+        isDragging = true;
+        battleUI.BeginCardDrag(cardIndex);
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        // Intentionally do nothing.
+        // Keep card anchored in layout and use drag only for drop target detection.
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        if (!isDragging || canvasGroup == null) return;
+        canvasGroup.blocksRaycasts = true;
+        canvasGroup.alpha = 1f;
+        isDragging = false;
+        if (battleUI != null) battleUI.EndCardDrag();
+    }
+
+    public void OnDrop(PointerEventData eventData)
+    {
+        if (battleUI == null) return;
+        battleUI.HandleCardDrop(cardIndex);
     }
 }

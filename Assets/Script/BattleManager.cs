@@ -14,9 +14,21 @@ public class Fighter
     public int maxDP;
     public int currentDP;
     public int sp;
+    public int switchInTurnBuff;
     public Transform fighterTransform;
     public bool isEnemy;
     public Vector3 origPos;
+
+    public void OnSwitchOut()
+    {
+        // Hook point for future passive effects.
+    }
+
+    public void OnSwitchIn()
+    {
+        // Hook point for future passive effects.
+        switchInTurnBuff = 1;
+    }
 }
 
 public class BattleManager : MonoBehaviour
@@ -27,6 +39,7 @@ public class BattleManager : MonoBehaviour
 
     public Fighter[] frontLine = new Fighter[3];
     public Fighter[] backLine = new Fighter[3];
+    private PartyManager partyManager;
 
     [Header("Overdrive")]
     public int currentOverdrive = 0;
@@ -36,6 +49,8 @@ public class BattleManager : MonoBehaviour
     [Header("Camera & Positions")]
     public CameraFollow cameraFollow;
     public Transform battleCameraPoint;
+    [Header("Camera Options")]
+    public bool useCinematicCamera = true;
 
     private AudioSource combatAudioSource;
     public BattleUI battleUI;
@@ -72,6 +87,7 @@ public class BattleManager : MonoBehaviour
         StopAllCoroutines();
         allies.Clear();
         enemies.Clear();
+        partyManager = null;
         System.Array.Clear(frontLine, 0, frontLine.Length);
         System.Array.Clear(backLine, 0, backLine.Length);
         currentOverdrive = 0;
@@ -95,15 +111,15 @@ public class BattleManager : MonoBehaviour
             f.maxDP = i == 0 ? 150 : 120;
             f.currentDP = f.maxDP;
             f.sp = 3; // Initial SP
+            f.switchInTurnBuff = 0;
             f.isEnemy = false;
             f.fighterTransform = allyTransforms[i];
             f.origPos = allyTransforms[i].position;
             allies.Add(f);
-
-            // Assign to front/back line initially
-            if (i < 3) frontLine[i] = f;
-            else if (i < 6) backLine[i - 3] = f;
         }
+        partyManager = new PartyManager(allies);
+        frontLine = partyManager.frontLine;
+        backLine = partyManager.backLine;
 
         // Initialize 2 Enemies
         for (int i = 0; i < enemyTransforms.Count; i++)
@@ -123,7 +139,8 @@ public class BattleManager : MonoBehaviour
             enemies.Add(e);
         }
 
-        // Store default camera position
+        // Keep Battle scene camera position as the standard viewpoint.
+        // This makes the opening UI position and battle position consistent.
         if (Camera.main != null)
         {
             defaultCamPos = Camera.main.transform.position;
@@ -133,7 +150,7 @@ public class BattleManager : MonoBehaviour
         if (cameraFollow != null)
         {
             cameraFollow.target = null;
-            StartCoroutine(AnimateCameraToBattle());
+            cameraFollow.isTalking = false;
         }
 
         isBattleActive = true;
@@ -147,17 +164,7 @@ public class BattleManager : MonoBehaviour
     /// </summary>
     public void SwapFrontBack(int colIndex)
     {
-        if (colIndex < 0 || colIndex >= 3) return;
-
-        Fighter temp = frontLine[colIndex];
-        frontLine[colIndex] = backLine[colIndex];
-        backLine[colIndex] = temp;
-
-        ArrangeLinePositions();
-        battleUI.UpdateUI();
-        
-        // Play small swap sound effect
-        PlaySynthSound(ActionType.Heal, 800f, 0.1f);
+        TrySwapFrontAndBack(colIndex, colIndex);
     }
 
     /// <summary>
@@ -167,16 +174,38 @@ public class BattleManager : MonoBehaviour
     /// </summary>
     public void SwapFrontAndBack(int frontCol, int backCol)
     {
-        if (frontCol < 0 || frontCol >= 3 || backCol < 0 || backCol >= 3) return;
+        TrySwapFrontAndBack(frontCol, backCol);
+    }
 
-        Fighter temp = frontLine[frontCol];
-        frontLine[frontCol] = backLine[backCol];
-        backLine[backCol] = temp;
+    public bool TrySwapFrontAndBack(int frontCol, int backCol)
+    {
+        if (frontCol < 0 || frontCol >= 3 || backCol < 0 || backCol >= 3) return false;
+        if (partyManager == null) return false;
+        if (!partyManager.SwapSingle(frontCol, backCol)) return false;
 
         ArrangeLinePositions();
         battleUI.UpdateUI();
 
         PlaySynthSound(ActionType.Heal, 800f, 0.1f);
+        return true;
+    }
+
+    public bool TrySwapAllFrontBack()
+    {
+        if (partyManager == null) return false;
+        if (!partyManager.SwapAll()) return false;
+
+        ArrangeLinePositions();
+        battleUI.UpdateUI();
+        PlaySynthSound(ActionType.Heal, 800f, 0.1f);
+        return true;
+    }
+
+    public bool CanCardBeSwitched(int cardIndex)
+    {
+        if (cardIndex < 0 || cardIndex >= 6) return false;
+        Fighter f = cardIndex < 3 ? frontLine[cardIndex] : backLine[cardIndex - 3];
+        return partyManager != null && partyManager.CanSwitch(f);
     }
 
     private void ArrangeLinePositions()
@@ -196,40 +225,6 @@ public class BattleManager : MonoBehaviour
                 backLine[i].fighterTransform.gameObject.SetActive(false);
             }
 
-        }
-    }
-
-    private IEnumerator AnimateCameraToBattle()
-    {
-        if (Camera.main == null) yield break;
-        Transform camTrans = Camera.main.transform;
-        
-        Vector3 centerPos = Vector3.zero;
-        if (allies != null && allies.Count > 0 && allies[0] != null)
-        {
-            centerPos = allies[0].origPos;
-        }
-
-        Vector3 targetCamPos = centerPos + new Vector3(2.5f, 3.5f, -9f); 
-        Quaternion targetCamRot = Quaternion.Euler(15f, -10f, 0f);
-
-        // Store as default for battle
-        defaultCamPos = targetCamPos;
-        defaultCamRot = targetCamRot;
-
-        float elapsed = 0f;
-        float duration = 1.5f;
-
-        while (elapsed < duration)
-        {
-            if (Camera.main == null) yield break;
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            float tSmooth = t * t * (3f - 2f * t);
-
-            camTrans.position = Vector3.Lerp(camTrans.position, targetCamPos, tSmooth);
-            camTrans.rotation = Quaternion.Slerp(camTrans.rotation, targetCamRot, tSmooth);
-            yield return null;
         }
     }
 
@@ -335,8 +330,11 @@ public class BattleManager : MonoBehaviour
     {
         battleUI.SetButtonsEnabled(false);
 
-        // --- CAMERA: Move to dramatic attack angle ---
-        yield return StartCoroutine(CameraToAttackAngle());
+        // Keep editor-authored camera transform unless cinematic camera is explicitly enabled.
+        if (useCinematicCamera)
+        {
+            yield return StartCoroutine(CameraToAttackAngle());
+        }
 
         // --- 1. HERO ACTION PHASE ---
         for (int i = 0; i < 3; i++)
@@ -360,8 +358,10 @@ public class BattleManager : MonoBehaviour
             yield return new WaitForSeconds(0.3f);
         }
 
-        // --- CAMERA: Return to default for enemy phase ---
-        yield return StartCoroutine(CameraToDefaultAngle());
+        if (useCinematicCamera)
+        {
+            yield return StartCoroutine(CameraToDefaultAngle());
+        }
 
         yield return new WaitForSeconds(0.4f);
 

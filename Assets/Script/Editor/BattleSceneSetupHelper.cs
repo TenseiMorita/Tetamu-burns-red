@@ -72,6 +72,7 @@ public class BattleSceneSetupHelper : EditorWindow
 
         // 3. Ensure main camera
         Camera cam = Camera.main;
+        bool createdNewCamera = false;
         if (cam == null)
         {
             GameObject camObj = new GameObject("Main Camera");
@@ -79,13 +80,17 @@ public class BattleSceneSetupHelper : EditorWindow
             cam = camObj.AddComponent<Camera>();
             camObj.AddComponent<AudioListener>();
             Undo.RegisterCreatedObjectUndo(camObj, "Create Main Camera");
+            createdNewCamera = true;
         }
 
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.04f, 0.05f, 0.10f, 1f);
         cam.fieldOfView = 60f;
-        cam.transform.position = new Vector3(0f, 5f, -10f);
-        cam.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
+        if (createdNewCamera)
+        {
+            cam.transform.position = new Vector3(0f, 5f, -10f);
+            cam.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
+        }
 
         // Add CameraFollow if missing
         if (cam.GetComponent<CameraFollow>() == null)
