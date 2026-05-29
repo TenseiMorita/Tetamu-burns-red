@@ -12,6 +12,7 @@ public class NPCDialogue : MonoBehaviour
     public TextMeshProUGUI dialogueText;
 
     private bool isPlayerNear;
+    private bool _dialoguePanelWarningShown = false;
 
     public CameraFollow cameraFollow;
 
@@ -65,7 +66,11 @@ public class NPCDialogue : MonoBehaviour
             
             if (dialoguePanel == null)
             {
-                Debug.LogWarning("NPCDialogue: dialoguePanel could not be resolved in scene (even inactive scan)!");
+                if (!_dialoguePanelWarningShown)
+                {
+                    Debug.LogWarning("NPCDialogue: dialoguePanel could not be resolved in scene (even inactive scan)!");
+                    _dialoguePanelWarningShown = true;
+                }
                 return;
             }
         }
@@ -99,7 +104,7 @@ public class NPCDialogue : MonoBehaviour
         // Automatically fetch gameManager if null
         if (gameManager == null)
         {
-            gameManager = FindObjectOfType<GameManager>();
+            gameManager = FindFirstObjectByType<GameManager>();
         }
 
         // --- ULTRA-ROBUST JAPANESE FONT RESOLVER (Self-Healing & Editor Force Load) ---
@@ -353,7 +358,7 @@ public class NPCDialogue : MonoBehaviour
             customDialogueText.fontStyle = FontStyles.Normal;
             customDialogueText.lineSpacing = 12f; // Comfortable line separation
             customDialogueText.overflowMode = TextOverflowModes.Overflow; // Prevent clipping
-            customDialogueText.enableWordWrapping = true;
+            customDialogueText.textWrappingMode = TextWrappingModes.Normal;
             if (jpnFont != null)
             {
                 customDialogueText.font = jpnFont;

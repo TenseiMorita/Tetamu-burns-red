@@ -46,7 +46,7 @@ public class GameSetupHelper : EditorWindow
         Undo.SetCurrentGroupName("HBR Scenario Deep Setup");
 
         // 1. Create/Setup Player GameObject
-        PlayerMove player = FindObjectOfType<PlayerMove>();
+        PlayerMove player = FindFirstObjectByType<PlayerMove>();
         GameObject playerObj = null;
         if (player != null)
         {
@@ -108,7 +108,7 @@ public class GameSetupHelper : EditorWindow
         playerObj.transform.rotation = Quaternion.Euler(0f, 90f, 0f); // face right
 
         // 2. Create/Setup Comrade NPC GameObject
-        NPCDialogue npc = FindObjectOfType<NPCDialogue>();
+        NPCDialogue npc = FindFirstObjectByType<NPCDialogue>();
         GameObject npcObj = null;
         if (npc != null)
         {
@@ -170,7 +170,7 @@ public class GameSetupHelper : EditorWindow
         npcObj.transform.rotation = Quaternion.Euler(0f, -90f, 0f); // face left
 
         // 3. Create/Setup Camera
-        CameraFollow camFollow = FindObjectOfType<CameraFollow>();
+        CameraFollow camFollow = FindFirstObjectByType<CameraFollow>();
         Camera mainCam = Camera.main;
         if (mainCam == null)
         {
@@ -301,7 +301,7 @@ public class GameSetupHelper : EditorWindow
             Debug.Log("Assigned Japanese Dynamic SDF font.");
 
             // Update scene UI fonts
-            var allSceneUI = FindObjectsOfType<TMPro.TextMeshProUGUI>();
+            var allSceneUI = FindObjectsByType<TMPro.TextMeshProUGUI>(FindObjectsSortMode.None);
             foreach (var textElem in allSceneUI)
             {
                 Undo.RecordObject(textElem, "Assign Custom UI Font");
@@ -309,7 +309,7 @@ public class GameSetupHelper : EditorWindow
                 EditorUtility.SetDirty(textElem);
             }
 
-            var allScene3D = FindObjectsOfType<TMPro.TextMeshPro>();
+            var allScene3D = FindObjectsByType<TMPro.TextMeshPro>(FindObjectsSortMode.None);
             foreach (var textElem in allScene3D)
             {
                 Undo.RecordObject(textElem, "Assign Custom 3D Font");

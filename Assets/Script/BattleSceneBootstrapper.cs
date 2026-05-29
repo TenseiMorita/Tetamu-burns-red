@@ -22,7 +22,7 @@ public class BattleSceneBootstrapper : MonoBehaviour
     void Awake()
     {
         // 1. EventSystem が存在しない場合は自動生成（マウスクリック必須）
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             GameObject esObj = new GameObject("EventSystem");
             esObj.AddComponent<EventSystem>();
@@ -46,14 +46,14 @@ public class BattleSceneBootstrapper : MonoBehaviour
     private void EnsureCamera()
     {
         Camera cam = Camera.main;
-        bool createdNewCamera = false;
+
         if (cam == null)
         {
             GameObject camObj = new GameObject("MainCamera");
             camObj.tag = "MainCamera";
             cam = camObj.AddComponent<Camera>();
             camObj.AddComponent<AudioListener>();
-            createdNewCamera = true;
+
         }
 
         // 背景を HBR 風のダーク Navy に
@@ -65,13 +65,9 @@ public class BattleSceneBootstrapper : MonoBehaviour
         CameraFollow cf = cam.GetComponent<CameraFollow>();
         if (cf == null) cf = cam.gameObject.AddComponent<CameraFollow>();
 
-        // Keep editor-authored transform for existing cameras.
-        // Only assign fallback transform when camera was created at runtime.
-        if (createdNewCamera)
-        {
-            cam.transform.position = new Vector3(0f, 5f, -10f);
-            cam.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
-        }
+        // Always set the battle camera to HBR diagonal over-the-shoulder perspective
+        cam.transform.position = new Vector3(-6.5f, 4.5f, -11.0f);
+        cam.transform.rotation = Quaternion.Euler(18f, 32f, 0f);
     }
 
     private void EnsureGround()
@@ -145,13 +141,13 @@ public class BattleSceneBootstrapper : MonoBehaviour
         Camera cam = Camera.main;
         float battleY = 0.5f;
 
-        // Viewport anchors chosen so all allies stay in-screen on the left side.
-        Vector3 frontLeft  = GetWorldPointOnYPlane(cam, 0.30f, 0.35f, battleY);
-        Vector3 frontMid   = GetWorldPointOnYPlane(cam, 0.38f, 0.35f, battleY);
-        Vector3 frontRight = GetWorldPointOnYPlane(cam, 0.46f, 0.35f, battleY);
-        Vector3 backLeft   = GetWorldPointOnYPlane(cam, 0.30f, 0.27f, battleY);
-        Vector3 backMid    = GetWorldPointOnYPlane(cam, 0.38f, 0.27f, battleY);
-        Vector3 backRight  = GetWorldPointOnYPlane(cam, 0.46f, 0.27f, battleY);
+        // Position allies closer to the camera (bottom of the viewport)
+        Vector3 frontLeft  = GetWorldPointOnYPlane(cam, 0.18f, 0.22f, battleY);
+        Vector3 frontMid   = GetWorldPointOnYPlane(cam, 0.30f, 0.22f, battleY);
+        Vector3 frontRight = GetWorldPointOnYPlane(cam, 0.42f, 0.22f, battleY);
+        Vector3 backLeft   = GetWorldPointOnYPlane(cam, 0.18f, 0.15f, battleY);
+        Vector3 backMid    = GetWorldPointOnYPlane(cam, 0.30f, 0.15f, battleY);
+        Vector3 backRight  = GetWorldPointOnYPlane(cam, 0.42f, 0.15f, battleY);
 
         Vector3[] allyPositions =
         {
@@ -166,6 +162,9 @@ public class BattleSceneBootstrapper : MonoBehaviour
             GameObject ally = GameObject.CreatePrimitive(PrimitiveType.Cube);
             ally.name = "BattleAlly_" + i;
             ally.transform.position = allyPositions[i];
+            
+            // Rotate allies to face the enemies in the background-right
+            ally.transform.rotation = Quaternion.Euler(0f, 45f, 0f);
 
             // Assign distinct color material
             Renderer rend = ally.GetComponent<Renderer>();
@@ -182,33 +181,62 @@ public class BattleSceneBootstrapper : MonoBehaviour
         }
     }
 
+    [Header("Enemy Prefabs")]
+    public GameObject slimePrefab;
+    public GameObject turtlePrefab;
+
     private void BuildEnemyTransforms()
     {
+#if UNITY_EDITOR
+        if (slimePrefab == null)
+        {
+            slimePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/RPG Monster DUO PBR Polyart/Prefabs/PolyartDefault/SlimePolyart.prefab");
+        }
+        if (turtlePrefab == null)
+        {
+            turtlePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/RPG Monster DUO PBR Polyart/Prefabs/PolyartDefault/TurtleShellPolyart.prefab");
+        }
+#endif
+
         if (enemyTransforms.Count > 0) return; // Already set from Inspector
 
         Camera cam = Camera.main;
         float battleY = 0.0f;
-        Vector3 enemyPosA = GetWorldPointOnYPlane(cam, 0.62f, 0.33f, battleY);
-        Vector3 enemyPosB = GetWorldPointOnYPlane(cam, 0.72f, 0.33f, battleY);
+        // Position enemies further back (higher on viewport)
+        Vector3 enemyPosA = GetWorldPointOnYPlane(cam, 0.60f, 0.42f, battleY);
+        Vector3 enemyPosB = GetWorldPointOnYPlane(cam, 0.72f, 0.42f, battleY);
 
         for (int i = 0; i < 2; i++)
         {
             GameObject enemy = new GameObject("BattleEnemy_" + i);
             enemy.transform.position = (i == 0) ? enemyPosA : enemyPosB;
-            GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            capsule.name = "Model";
-            capsule.transform.SetParent(enemy.transform, false);
-            capsule.transform.localPosition = new Vector3(0f, 1.0f, 0f);
-            capsule.transform.localScale = new Vector3(1.2f, 1.6f, 1.2f);
-            Destroy(capsule.GetComponent<Collider>());
+            
+            GameObject modelPrefab = (i == 0) ? slimePrefab : turtlePrefab;
+            if (modelPrefab != null)
+            {
+                GameObject model = Instantiate(modelPrefab, enemy.transform);
+                model.name = "Model";
+                model.transform.localPosition = Vector3.zero;
+                // Rotate enemies to face the allies in the foreground-left
+                model.transform.localRotation = Quaternion.Euler(0f, -135f, 0f);
+            }
+            else
+            {
+                GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                capsule.name = "Model";
+                capsule.transform.SetParent(enemy.transform, false);
+                capsule.transform.localPosition = new Vector3(0f, 1.0f, 0f);
+                capsule.transform.localScale = new Vector3(1.2f, 1.6f, 1.2f);
+                Destroy(capsule.GetComponent<Collider>());
 
-            Material enemyMat = new Material(Shader.Find("Standard"));
-            enemyMat.color = new Color(0.55f, 0.20f, 0.90f, 1f);
-            enemyMat.SetFloat("_Metallic", 0.25f);
-            enemyMat.SetFloat("_Glossiness", 0.8f);
-            enemyMat.EnableKeyword("_EMISSION");
-            enemyMat.SetColor("_EmissionColor", new Color(0.30f, 0.05f, 0.45f));
-            capsule.GetComponent<Renderer>().sharedMaterial = enemyMat;
+                Material enemyMat = new Material(Shader.Find("Standard"));
+                enemyMat.color = new Color(0.55f, 0.20f, 0.90f, 1f);
+                enemyMat.SetFloat("_Metallic", 0.25f);
+                enemyMat.SetFloat("_Glossiness", 0.8f);
+                enemyMat.EnableKeyword("_EMISSION");
+                enemyMat.SetColor("_EmissionColor", new Color(0.30f, 0.05f, 0.45f));
+                capsule.GetComponent<Renderer>().sharedMaterial = enemyMat;
+            }
 
             enemy.tag = "Respawn";
             enemyTransforms.Add(enemy.transform);
@@ -244,7 +272,7 @@ public class BattleSceneBootstrapper : MonoBehaviour
     private void SetupBattleLighting()
     {
         // Main directional light
-        Light existingLight = FindObjectOfType<Light>();
+        Light existingLight = FindFirstObjectByType<Light>();
         if (existingLight == null)
         {
             GameObject lightObj = new GameObject("DirectionalLight");

@@ -76,7 +76,7 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("GameManager: Scene loaded -> " + scene.name);
 
-        if (scene.name == "SampleScene")
+        if (scene.name == "Talk")
         {
             StartCoroutine(InitSampleScene());
         }
@@ -87,12 +87,12 @@ public class GameManager : MonoBehaviour
     }
 
     // ============================================================
-    // SampleScene initialisation (Explore → Alert → Transition)
+    // Talk scene initialisation (Explore → Alert → Transition)
     // ============================================================
     void Start()
     {
-        // Only run initial setup when we are actually in SampleScene
-        if (SceneManager.GetActiveScene().name == "SampleScene")
+        // Only run initial setup when we are actually in Talk scene
+        if (SceneManager.GetActiveScene().name == "Talk")
         {
             transform.position = Vector3.zero;
             transform.rotation = Quaternion.identity;
@@ -115,15 +115,15 @@ public class GameManager : MonoBehaviour
         transform.localScale = Vector3.one;
 
         // Re-find or recreate references that belong to SampleScene
-        playerMove = FindObjectOfType<PlayerMove>();
-        cameraFollow = FindObjectOfType<CameraFollow>();
+        playerMove = FindFirstObjectByType<PlayerMove>();
+        cameraFollow = FindFirstObjectByType<CameraFollow>();
         if (cameraFollow != null) cameraFollow.enabled = true;
-        npcDialogue = FindObjectOfType<NPCDialogue>();
+        npcDialogue = FindFirstObjectByType<NPCDialogue>();
 
-        corridorGenerator = FindObjectOfType<CorridorGenerator>();
-        schoolyardGenerator = FindObjectOfType<SchoolyardGenerator>();
+        corridorGenerator = FindFirstObjectByType<CorridorGenerator>();
+        schoolyardGenerator = FindFirstObjectByType<SchoolyardGenerator>();
 
-        alertSystem = FindObjectOfType<EmergencyAlertSystem>();
+        alertSystem = FindFirstObjectByType<EmergencyAlertSystem>();
         if (alertSystem == null)
         {
             GameObject sys = new GameObject("EmergencyAlertSystem");
@@ -131,7 +131,7 @@ public class GameManager : MonoBehaviour
         }
         if (alertSystem != null) alertSystem.customFont = customFont;
 
-        weaponSummoner = FindObjectOfType<WeaponSummoner>();
+        weaponSummoner = FindFirstObjectByType<WeaponSummoner>();
         if (weaponSummoner == null)
         {
             GameObject sys = new GameObject("WeaponSummoner");
@@ -201,8 +201,8 @@ public class GameManager : MonoBehaviour
         }
 
         // Resolve BattleManager & BattleUI from the Battle scene
-        battleManager = FindObjectOfType<BattleManager>();
-        battleUI = FindObjectOfType<BattleUI>();
+        battleManager = FindFirstObjectByType<BattleManager>();
+        battleUI = FindFirstObjectByType<BattleUI>();
 
         if (battleManager == null)
         {
@@ -215,7 +215,7 @@ public class GameManager : MonoBehaviour
             battleUI = sys.AddComponent<BattleUI>();
         }
 
-        weaponSummoner = FindObjectOfType<WeaponSummoner>();
+        weaponSummoner = FindFirstObjectByType<WeaponSummoner>();
         if (weaponSummoner == null)
         {
             GameObject sys = new GameObject("WeaponSummoner");
@@ -224,7 +224,7 @@ public class GameManager : MonoBehaviour
 
 
         // Re-find camera in Battle scene
-        cameraFollow = FindObjectOfType<CameraFollow>();
+        cameraFollow = FindFirstObjectByType<CameraFollow>();
         if (cameraFollow == null)
         {
             Camera cam = Camera.main;
@@ -251,7 +251,7 @@ public class GameManager : MonoBehaviour
     private void CleanupTalkActorsForBattle()
     {
         // Any lingering Player from Talk scene must never appear in Battle scene.
-        PlayerMove[] talkPlayers = FindObjectsOfType<PlayerMove>(true);
+        PlayerMove[] talkPlayers = FindObjectsByType<PlayerMove>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (PlayerMove pm in talkPlayers)
         {
             if (pm == null) continue;
@@ -261,7 +261,7 @@ public class GameManager : MonoBehaviour
         playerMove = null;
 
         // Remove dialogue NPCs that can accidentally survive or be pre-placed.
-        NPCDialogue[] talkNpcs = FindObjectsOfType<NPCDialogue>(true);
+        NPCDialogue[] talkNpcs = FindObjectsByType<NPCDialogue>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         foreach (NPCDialogue npc in talkNpcs)
         {
             if (npc == null) continue;
@@ -451,9 +451,9 @@ public class GameManager : MonoBehaviour
 
     private void SetupCharacters()
     {
-        if (playerMove == null) playerMove = FindObjectOfType<PlayerMove>();
-        if (cameraFollow == null) cameraFollow = FindObjectOfType<CameraFollow>();
-        if (npcDialogue == null) npcDialogue = FindObjectOfType<NPCDialogue>();
+        if (playerMove == null) playerMove = FindFirstObjectByType<PlayerMove>();
+        if (cameraFollow == null) cameraFollow = FindFirstObjectByType<CameraFollow>();
+        if (npcDialogue == null) npcDialogue = FindFirstObjectByType<NPCDialogue>();
 
         if (playerMove != null)
         {
@@ -551,7 +551,7 @@ public class GameManager : MonoBehaviour
         EnsureJapaneseFont();
 
         // Find or create main canvas
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         GameObject canvasObj = (canvas != null) ? canvas.gameObject : new GameObject("GlobalCanvas");
         if (canvas == null)
         {
@@ -562,7 +562,7 @@ public class GameManager : MonoBehaviour
         }
 
         // Ensure EventSystem exists (critical for mouse clicks!)
-        if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
         {
             GameObject esObj = new GameObject("EventSystem");
             esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
@@ -657,7 +657,7 @@ public class GameManager : MonoBehaviour
         tRT.sizeDelta = Vector2.zero;
         TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
         if (customFont != null) titleText.font = customFont;
-        titleText.text = "校舎 <color=#00e5ff>➔</color> <color=#ffb300>校庭</color>";
+        titleText.text = "校舎 <color=#00e5ff>▶</color> <color=#ffb300>校庭</color>";
         titleText.fontSize = 42f;
         titleText.fontStyle = FontStyles.Bold;
         titleText.alignment = TextAlignmentOptions.Center;
@@ -952,7 +952,7 @@ public class GameManager : MonoBehaviour
         List<Transform> allies = new List<Transform>();
 
         // In Battle scene, look for BattleSceneBootstrapper ally transforms
-        BattleSceneBootstrapper bootstrapper = FindObjectOfType<BattleSceneBootstrapper>();
+        BattleSceneBootstrapper bootstrapper = FindFirstObjectByType<BattleSceneBootstrapper>();
         if (bootstrapper != null)
         {
             allies.AddRange(bootstrapper.allyTransforms);
@@ -991,18 +991,47 @@ public class GameManager : MonoBehaviour
         List<Transform> enemies = new List<Transform>();
 
         // Find enemy spawns set up by BattleSceneBootstrapper
-        BattleSceneBootstrapper bootstrapper = FindObjectOfType<BattleSceneBootstrapper>();
+        BattleSceneBootstrapper bootstrapper = FindFirstObjectByType<BattleSceneBootstrapper>();
         if (bootstrapper != null)
         {
             enemies.AddRange(bootstrapper.enemyTransforms);
         }
         else
         {
-            // Fallback placeholder enemies
+            // Fallback placeholder enemies with actual monster models
             for (int i = 0; i < 2; i++)
             {
                 GameObject dummy = new GameObject("Enemy_" + i);
                 dummy.transform.position = new Vector3(4f + i * 2f, 0f, 0f);
+
+                GameObject modelPrefab = null;
+#if UNITY_EDITOR
+                string prefabPath = (i == 0)
+                    ? "Assets/RPG Monster DUO PBR Polyart/Prefabs/PolyartDefault/SlimePolyart.prefab"
+                    : "Assets/RPG Monster DUO PBR Polyart/Prefabs/PolyartDefault/TurtleShellPolyart.prefab";
+                modelPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+#endif
+                if (modelPrefab != null)
+                {
+                    GameObject model = Instantiate(modelPrefab, dummy.transform);
+                    model.name = "Model";
+                    model.transform.localPosition = Vector3.zero;
+                    model.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                }
+                else
+                {
+                    GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    capsule.name = "Model";
+                    capsule.transform.SetParent(dummy.transform, false);
+                    capsule.transform.localPosition = new Vector3(0f, 1.0f, 0f);
+                    capsule.transform.localScale = new Vector3(1.2f, 1.6f, 1.2f);
+                    Destroy(capsule.GetComponent<Collider>());
+
+                    Material enemyMat = new Material(Shader.Find("Standard"));
+                    enemyMat.color = new Color(0.55f, 0.20f, 0.90f, 1f);
+                    capsule.GetComponent<Renderer>().sharedMaterial = enemyMat;
+                }
+
                 enemies.Add(dummy.transform);
             }
         }
@@ -1032,7 +1061,7 @@ public class GameManager : MonoBehaviour
     {
         PlayEndChimeSynth(isVictory);
 
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject co = new GameObject("ResultCanvas");
@@ -1095,7 +1124,7 @@ public class GameManager : MonoBehaviour
             Destroy(resultPanel);
             if (isVictory)
             {
-                SceneManager.LoadScene("SampleScene");
+                SceneManager.LoadScene("Talk");
             }
             else
             {

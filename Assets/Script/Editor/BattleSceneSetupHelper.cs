@@ -42,7 +42,7 @@ public class BattleSceneSetupHelper : EditorWindow
         Undo.SetCurrentGroupName("HBR Battle Scene Setup");
 
         // 1. Create Bootstrapper object
-        BattleSceneBootstrapper bootstrapper = FindObjectOfType<BattleSceneBootstrapper>();
+        BattleSceneBootstrapper bootstrapper = FindFirstObjectByType<BattleSceneBootstrapper>();
         GameObject bsObj = null;
         if (bootstrapper == null)
         {
@@ -59,7 +59,7 @@ public class BattleSceneSetupHelper : EditorWindow
         }
 
         // 2. Create/find a simple directional light
-        if (FindObjectOfType<Light>() == null)
+        if (FindFirstObjectByType<Light>() == null)
         {
             GameObject lightObj = new GameObject("Directional Light");
             Light dl = lightObj.AddComponent<Light>();
@@ -72,7 +72,7 @@ public class BattleSceneSetupHelper : EditorWindow
 
         // 3. Ensure main camera
         Camera cam = Camera.main;
-        bool createdNewCamera = false;
+
         if (cam == null)
         {
             GameObject camObj = new GameObject("Main Camera");
@@ -80,17 +80,15 @@ public class BattleSceneSetupHelper : EditorWindow
             cam = camObj.AddComponent<Camera>();
             camObj.AddComponent<AudioListener>();
             Undo.RegisterCreatedObjectUndo(camObj, "Create Main Camera");
-            createdNewCamera = true;
+
         }
 
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.04f, 0.05f, 0.10f, 1f);
         cam.fieldOfView = 60f;
-        if (createdNewCamera)
-        {
-            cam.transform.position = new Vector3(0f, 5f, -10f);
-            cam.transform.rotation = Quaternion.Euler(18f, 0f, 0f);
-        }
+        // Set the camera to HBR diagonal over-the-shoulder perspective in the editor
+        cam.transform.position = new Vector3(-6.5f, 4.5f, -11.0f);
+        cam.transform.rotation = Quaternion.Euler(18f, 32f, 0f);
 
         // Add CameraFollow if missing
         if (cam.GetComponent<CameraFollow>() == null)
@@ -99,7 +97,7 @@ public class BattleSceneSetupHelper : EditorWindow
         }
 
         // 4. NPC Dialogue (optional) for cutscene in Battle scene
-        NPCDialogue npcDlg = FindObjectOfType<NPCDialogue>();
+        NPCDialogue npcDlg = FindFirstObjectByType<NPCDialogue>();
         if (npcDlg == null)
         {
             GameObject npcObj = new GameObject("BattleNPCDialogue");
@@ -110,7 +108,7 @@ public class BattleSceneSetupHelper : EditorWindow
         }
 
         // Assign font if GameManager has it (GameManager might already be loaded if editor was in SampleScene)
-        GameManager gm = FindObjectOfType<GameManager>();
+        GameManager gm = FindFirstObjectByType<GameManager>();
         if (gm != null && gm.customFont != null)
         {
             // Pass font to NPCDialogue
@@ -128,7 +126,7 @@ public class BattleSceneSetupHelper : EditorWindow
             "・BattleSceneBootstrapper がシーンに配置されました\n" +
             "・カメラ・照明が設定されました\n" +
             "・NPCDialogue（カットシーン用）が配置されました\n\n" +
-            "SampleSceneでプレイを開始し、会話を進めると自動的にBattleシーンに切り替わります。",
+            "Talkでプレイを開始し、会話を進めると自動的にBattleシーンに切り替わります。",
             "OK");
     }
 }

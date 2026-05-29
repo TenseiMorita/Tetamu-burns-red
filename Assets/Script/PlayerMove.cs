@@ -33,7 +33,7 @@ public class PlayerMove : MonoBehaviour
         // Apply gravity even when movement is locked so they don't float!
         if (!canMove)
         {
-            if (controller != null)
+            if (controller != null && controller.enabled && controller.gameObject.activeInHierarchy)
             {
                 Vector3 gravDir = new Vector3(0f, -9.81f, 0f);
                 controller.Move(gravDir * Time.deltaTime);
@@ -51,7 +51,7 @@ public class PlayerMove : MonoBehaviour
         // Move horizontally and apply gravity vertically to stay grounded
         Vector3 dir = new Vector3(move * speed, -9.81f, 0f);
 
-        if (controller != null)
+        if (controller != null && controller.enabled && controller.gameObject.activeInHierarchy)
         {
             controller.Move(dir * Time.deltaTime);
         }

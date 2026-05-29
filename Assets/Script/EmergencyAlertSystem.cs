@@ -121,7 +121,7 @@ public class EmergencyAlertSystem : MonoBehaviour
         originalPointLightColors.Clear();
         originalPointLightIntensities.Clear();
         
-        Light[] allLights = FindObjectsOfType<Light>();
+        Light[] allLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
         foreach (Light l in allLights)
         {
             if (l.type == LightType.Point)
@@ -190,7 +190,7 @@ public class EmergencyAlertSystem : MonoBehaviour
 
     private Light FindDirectionalLight()
     {
-        Light[] lights = FindObjectsOfType<Light>();
+        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional) return l;
@@ -201,7 +201,7 @@ public class EmergencyAlertSystem : MonoBehaviour
     private void CreateAlertUI()
     {
         // Find existing canvas or create one
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         GameObject canvasObj;
         if (canvas == null)
         {

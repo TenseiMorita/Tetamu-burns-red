@@ -143,6 +143,9 @@ public class BattleManager : MonoBehaviour
         // This makes the opening UI position and battle position consistent.
         if (Camera.main != null)
         {
+            Camera.main.transform.position = new Vector3(-6.5f, 4.5f, -11.0f);
+            Camera.main.transform.rotation = Quaternion.Euler(18f, 32f, 0f);
+            
             defaultCamPos = Camera.main.transform.position;
             defaultCamRot = Camera.main.transform.rotation;
         }
@@ -698,7 +701,7 @@ public class BattleManager : MonoBehaviour
                 f.fighterTransform.position = f.origPos;
         }
 
-        WeaponSummoner summoner = FindObjectOfType<WeaponSummoner>();
+        WeaponSummoner summoner = FindFirstObjectByType<WeaponSummoner>();
         if (summoner != null) summoner.ClearWeapons();
 
         gameManager.EndBattle(isPlayerVictory);

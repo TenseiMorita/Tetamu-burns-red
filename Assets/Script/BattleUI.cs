@@ -90,7 +90,7 @@ public class BattleUI : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        if (FindObjectOfType<EventSystem>() != null) return;
+        if (FindFirstObjectByType<EventSystem>() != null) return;
         GameObject esObj = new GameObject("EventSystem");
         esObj.AddComponent<EventSystem>();
         esObj.AddComponent<StandaloneInputModule>();
@@ -235,7 +235,7 @@ public class BattleUI : MonoBehaviour
 
     private void CreateProceduralUI()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("BattleCanvas");
